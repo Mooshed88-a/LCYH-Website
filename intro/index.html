@@ -152,6 +152,18 @@
       <p>凌城烟火 · Minecraft 群组服务器</p>
     </footer>
     <script>
+      const siteHeader = document.querySelector(".site-header");
+
+      function updateHeaderVisibility() {
+        siteHeader?.classList.toggle("is-visible", window.scrollY > 120);
+      }
+
+      updateHeaderVisibility();
+      window.requestAnimationFrame(updateHeaderVisibility);
+      window.addEventListener("scroll", updateHeaderVisibility, { passive: true });
+      window.addEventListener("load", updateHeaderVisibility);
+      window.addEventListener("hashchange", updateHeaderVisibility);
+
       async function copyText(value) {
         if (navigator.clipboard && window.isSecureContext) {
           await navigator.clipboard.writeText(value);

@@ -162,8 +162,10 @@ a:hover {
 }
 
 .site-header {
-  position: sticky;
+  position: fixed;
   top: 0;
+  left: 0;
+  right: 0;
   z-index: 20;
   display: flex;
   align-items: center;
@@ -173,6 +175,25 @@ a:hover {
   border-bottom: 1px solid color-mix(in oklch, var(--line) 76%, transparent);
   background: color-mix(in oklch, var(--white) 88%, transparent);
   backdrop-filter: blur(16px);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateY(-8px);
+  transition:
+    opacity 220ms ease,
+    transform 220ms ease,
+    visibility 0s linear 220ms;
+}
+
+.site-header.is-visible {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translateY(0);
+  transition:
+    opacity 220ms ease,
+    transform 220ms ease,
+    visibility 0s;
 }
 
 .site-nav {
@@ -371,7 +392,7 @@ a:hover {
 
 @media (max-width: 860px) {
   .site-header {
-    position: static;
+    padding-block: 12px;
   }
 
   .server-facts {
