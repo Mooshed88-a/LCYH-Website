@@ -1,0 +1,396 @@
+:root {
+  color-scheme: light;
+  --paper: oklch(0.97 0.02 88);
+  --paper-strong: oklch(0.93 0.03 84);
+  --ink: oklch(0.2 0.02 74);
+  --muted: oklch(0.43 0.03 72);
+  --line: oklch(0.84 0.03 83);
+  --grass: oklch(0.44 0.12 142);
+  --ember: oklch(0.58 0.16 39);
+  --water: oklch(0.55 0.1 226);
+  --white: oklch(0.99 0 0);
+  --shadow: 0 24px 60px color-mix(in oklch, var(--ink) 14%, transparent);
+  font-family:
+    "Noto Sans SC", "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC",
+    sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--paper);
+  color: var(--ink);
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-size: 16px;
+  line-height: 1.75;
+  text-rendering: optimizeLegibility;
+}
+
+img {
+  display: block;
+  max-width: 100%;
+}
+
+a {
+  color: var(--grass);
+  text-decoration-thickness: 0.08em;
+  text-underline-offset: 0.22em;
+}
+
+a:hover {
+  color: var(--ember);
+}
+
+.copy-button {
+  appearance: none;
+  position: relative;
+  display: inline;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: inherit;
+  line-height: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-decoration-thickness: 0.08em;
+  text-underline-offset: 0.18em;
+}
+
+.copy-button:hover {
+  color: var(--grass);
+}
+
+.copy-button:focus-visible {
+  outline: 2px solid var(--grass);
+  outline-offset: 3px;
+}
+
+.copy-button::after {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 5px);
+  z-index: 30;
+  transform: translateX(-50%);
+  padding: 3px 7px;
+  border: 1px solid var(--line);
+  background: var(--white);
+  color: var(--ink);
+  font-size: 0.76rem;
+  font-weight: 700;
+  line-height: 1.4;
+  white-space: nowrap;
+  box-shadow: 0 8px 18px color-mix(in oklch, var(--ink) 10%, transparent);
+  pointer-events: none;
+}
+
+.copy-button[data-copied="true"]::after {
+  content: "已复制";
+}
+
+.copy-button[data-copied="failed"]::after {
+  content: "复制失败";
+}
+
+.home-redirect {
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: var(--white);
+}
+
+.redirect-shell {
+  width: min(420px, 100%);
+  padding: 0;
+  color: var(--ink);
+  text-align: left;
+}
+
+.redirect-kicker,
+.site-mark,
+.eyebrow {
+  margin: 0;
+  color: var(--ember);
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.redirect-shell h1 {
+  margin: 8px 0 6px;
+  font-size: clamp(1.75rem, 7vw, 2.4rem);
+  line-height: 1.18;
+  text-wrap: balance;
+}
+
+.redirect-shell p {
+  margin: 0 0 18px;
+  color: var(--muted);
+}
+
+.text-link {
+  color: var(--grass);
+  font-weight: 800;
+  text-decoration-thickness: 0.1em;
+}
+
+.text-link:hover {
+  color: var(--ember);
+}
+
+.noscript-tip {
+  position: fixed;
+  inset: auto 16px 16px;
+  padding: 12px 14px;
+  background: var(--white);
+  border: 1px solid var(--line);
+}
+
+.intro-page {
+  background: var(--white);
+}
+
+.site-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 14px clamp(18px, 4vw, 52px);
+  border-bottom: 1px solid color-mix(in oklch, var(--line) 76%, transparent);
+  background: color-mix(in oklch, var(--white) 88%, transparent);
+  backdrop-filter: blur(16px);
+}
+
+.site-nav {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.site-nav a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.site-nav a:hover {
+  color: var(--grass);
+}
+
+.hero {
+  display: block;
+  width: min(1120px, calc(100% - 36px));
+  margin: 0 auto;
+  padding: clamp(46px, 9vw, 108px) 0 clamp(30px, 6vw, 58px);
+  border-bottom: 1px solid var(--line);
+}
+
+.hero-copy {
+  max-width: 760px;
+}
+
+.hero-copy h1 {
+  margin: 12px 0 16px;
+  font-family:
+    "Noto Sans SC", "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC",
+    sans-serif;
+  font-size: clamp(3.4rem, 10vw, 7.6rem);
+  font-weight: 900;
+  line-height: 0.96;
+  text-wrap: balance;
+}
+
+.hero-copy p {
+  width: min(620px, 100%);
+  margin: 0;
+  color: var(--muted);
+  font-size: clamp(1.04rem, 2vw, 1.25rem);
+  text-wrap: pretty;
+}
+
+.hero-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 22px;
+  width: min(620px, 100%);
+  margin-top: 24px;
+  color: var(--muted);
+  font-size: 0.93rem;
+}
+
+.hero-meta span {
+  min-width: 112px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+
+.server-facts {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  width: min(1120px, calc(100% - 36px));
+  margin: -1px auto clamp(42px, 7vw, 78px);
+  overflow: hidden;
+  border: 1px solid var(--line);
+  background: var(--line);
+}
+
+.server-facts div {
+  min-width: 0;
+  padding: clamp(14px, 2.2vw, 22px);
+  background: var(--white);
+}
+
+.server-facts dt {
+  margin: 0 0 6px;
+  color: var(--muted);
+  font-size: 0.83rem;
+}
+
+.server-facts dd {
+  margin: 0;
+  font-size: clamp(1rem, 1.6vw, 1.2rem);
+  font-weight: 800;
+  word-break: break-word;
+}
+
+.content-shell {
+  width: min(980px, calc(100% - 36px));
+  margin: 0 auto;
+  padding-bottom: clamp(52px, 9vw, 96px);
+}
+
+.prose {
+  border-top: 1px solid var(--line);
+  padding-top: clamp(28px, 5vw, 56px);
+  font-size: 1.055rem;
+}
+
+.prose h1,
+.prose h2,
+.prose h3 {
+  font-family:
+    "Noto Serif SC", "Source Han Serif SC", "SimSun", serif;
+  line-height: 1.16;
+  text-wrap: balance;
+}
+
+.prose h1 {
+  margin: 0 0 24px;
+  font-size: clamp(2rem, 5vw, 4rem);
+}
+
+.prose h2 {
+  margin: clamp(46px, 7vw, 72px) 0 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+  font-size: clamp(1.85rem, 4vw, 3.3rem);
+}
+
+.prose h3 {
+  margin: 32px 0 12px;
+  font-size: 1.4rem;
+}
+
+.prose p,
+.prose li,
+.prose blockquote {
+  color: color-mix(in oklch, var(--ink) 82%, var(--muted));
+  text-wrap: pretty;
+}
+
+.prose p {
+  margin: 0 0 16px;
+}
+
+.prose strong {
+  color: var(--ink);
+  font-weight: 850;
+}
+
+.prose ul,
+.prose ol {
+  margin: 0 0 22px;
+  padding-left: 1.35em;
+}
+
+.prose li + li {
+  margin-top: 9px;
+}
+
+.prose blockquote {
+  margin: 18px 0 22px;
+  padding: 14px 18px;
+  border-inline-start: 3px solid var(--water);
+  background: color-mix(in oklch, var(--water) 8%, white);
+}
+
+.media-frame {
+  width: min(920px, 100%);
+  margin: clamp(24px, 5vw, 44px) auto;
+  border: 1px solid var(--line);
+  background: var(--white);
+}
+
+.media-frame img {
+  width: 100%;
+  max-height: min(74vh, 760px);
+  object-fit: contain;
+  background: var(--white);
+}
+
+.media-frame figcaption {
+  padding: 10px 12px;
+  color: var(--muted);
+  font-size: 0.86rem;
+  line-height: 1.5;
+}
+
+.site-footer {
+  width: min(1180px, calc(100% - 36px));
+  margin: 0 auto;
+  padding: 28px 0 44px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+}
+
+@media (max-width: 860px) {
+  .site-header {
+    position: static;
+  }
+
+  .server-facts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  body {
+    font-size: 16px;
+  }
+
+  .site-header,
+  .site-nav {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .server-facts {
+    grid-template-columns: 1fr;
+  }
+}
