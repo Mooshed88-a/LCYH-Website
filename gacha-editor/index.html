@@ -256,35 +256,14 @@
       <div id="scheduleEmpty" class="empty">暂无排期。</div>
     </section>
 
-    <div class="grid">
-      <section>
-        <h2>随机安慰奖池</h2>
-        <div class="toolbar">
-          <button class="good" id="addComfortButton">添加奖励</button>
-          <span class="status">权重越高越容易出现。</span>
-        </div>
-        <table>
-          <thead>
-            <tr>
-              <th>奖励</th>
-              <th style="width: 100px">权重</th>
-              <th style="width: 76px">操作</th>
-            </tr>
-          </thead>
-          <tbody id="comfortRows"></tbody>
-        </table>
-        <div id="comfortEmpty" class="empty">暂无安慰奖励。</div>
-      </section>
-
-      <section>
-        <h2>已保存奖品</h2>
-        <div id="itemList"></div>
-      </section>
-    </div>
+    <section>
+      <h2>已保存奖品</h2>
+      <div id="itemList"></div>
+    </section>
 
     <section>
       <h2>导入命令</h2>
-      <div id="validation" class="status">修改排期或奖励后生成命令。</div>
+      <div id="validation" class="status">修改排期后生成命令。</div>
       <div id="commands" class="commands"></div>
     </section>
   </main>
@@ -322,9 +301,8 @@
     }
 
     function render() {
-      $("stateSummary").innerHTML = `已读取 <strong>${state.items.length}</strong> 个奖品，<strong>${state.s.length}</strong> 条排期，<strong>${state.c.length}</strong> 个安慰奖励。`;
+      $("stateSummary").innerHTML = `已读取 <strong>${state.items.length}</strong> 个奖品，<strong>${state.s.length}</strong> 条排期。`;
       renderSchedule();
-      renderComfort();
       renderItems();
       validateOnly();
     }
@@ -338,17 +316,6 @@
           <td><select data-s="${index}" data-k="p1">${optionHtml(row.p1 || "")}</select></td>
           <td><select data-s="${index}" data-k="p2">${optionHtml(row.p2 || "")}</select></td>
           <td><button class="danger" data-del-s="${index}">删除</button></td>
-        </tr>
-      `).join("");
-    }
-
-    function renderComfort() {
-      $("comfortEmpty").style.display = state.c.length ? "none" : "block";
-      $("comfortRows").innerHTML = state.c.map((row, index) => `
-        <tr>
-          <td><select data-c="${index}" data-k="i">${optionHtml(row.i || "")}</select></td>
-          <td><input type="number" min="0.01" step="0.01" value="${escapeHtml(row.w ?? 1)}" data-c="${index}" data-k="w"></td>
-          <td><button class="danger" data-del-c="${index}">删除</button></td>
         </tr>
       `).join("");
     }
@@ -368,11 +335,6 @@
         const row = state.s[Number(input.dataset.s)];
         if (!row) return;
         row[input.dataset.k] = input.value.trim();
-      });
-      document.querySelectorAll("[data-c]").forEach(input => {
-        const row = state.c[Number(input.dataset.c)];
-        if (!row) return;
-        row[input.dataset.k] = input.dataset.k === "w" ? Number(input.value) : input.value.trim();
       });
     }
 
@@ -404,10 +366,6 @@
           errors.push(`第 ${ranges[i - 1].index + 1} 条和第 ${ranges[i].index + 1} 条排期时间重叠。`);
         }
       }
-      state.c.forEach((row, index) => {
-        if (!row.i || !itemIds.has(row.i)) errors.push(`第 ${index + 1} 个安慰奖励不存在。`);
-        if (!(Number(row.w) > 0)) errors.push(`第 ${index + 1} 个安慰奖励权重必须大于0。`);
-      });
       return errors;
     }
 
@@ -421,7 +379,7 @@
     async function generateCommands() {
       const errors = validateOnly();
       if (errors.length) return;
-      const payload = await encodePayload({ v: 1, s: state.s, c: state.c });
+      const payload = await encodePayload({ v: 1, s: state.s, c: [] });
       const max = Math.max(80, Number(state.m || 180));
       const single = `/xkgacha apply ${payload}`;
       if (single.length <= max) {
@@ -515,19 +473,9 @@
         state.s.push({ a: "2026-07-10 00:00", b: "2026-07-17 00:00", p1: "", p2: "" });
         render();
       }
-      if (target.id === "addComfortButton") {
-        collectFromDom();
-        state.c.push({ i: state.items[0]?.i || "", w: 1 });
-        render();
-      }
       if (target.dataset.delS) {
         collectFromDom();
         state.s.splice(Number(target.dataset.delS), 1);
-        render();
-      }
-      if (target.dataset.delC) {
-        collectFromDom();
-        state.c.splice(Number(target.dataset.delC), 1);
         render();
       }
       if (target.id === "generateButton") await generateCommands();
