@@ -7,9 +7,19 @@
     <title>凌城烟火</title>
     <link rel="stylesheet" href="./assets/css/site.css" />
     <script>
+      var introTarget = window.location.protocol === "file:"
+        ? "./intro/index.html"
+        : "/intro/";
+
       window.setTimeout(function () {
-        window.location.replace("./intro/index.html");
+        window.location.replace(introTarget);
       }, 1200);
+
+      window.addEventListener("DOMContentLoaded", function () {
+        document.querySelectorAll("[data-intro-link]").forEach(function (link) {
+          link.href = introTarget;
+        });
+      });
     </script>
   </head>
   <body class="home-redirect">
@@ -17,11 +27,11 @@
       <p class="redirect-kicker">凌城烟火</p>
       <h1>主页正在制作</h1>
       <p>已自动跳转至服务器介绍页。</p>
-      <a class="text-link" href="./intro/index.html">立即前往介绍页</a>
+      <a class="text-link" data-intro-link href="/intro/">立即前往介绍页</a>
     </main>
     <noscript>
       <p class="noscript-tip">
-        主页正在制作，请打开 <a href="./intro/index.html">服务器介绍页</a>。
+        主页正在制作，请打开 <a href="/intro/">服务器介绍页</a>。
       </p>
     </noscript>
   </body>

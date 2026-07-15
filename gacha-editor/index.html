@@ -1,0 +1,498 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>XKGacha Editor</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f5f7fa;
+      --surface: #ffffff;
+      --surface-soft: #f8fafc;
+      --text: #1f2933;
+      --muted: #667085;
+      --line: #d9e2ec;
+      --line-strong: #9fb3c8;
+      --accent: #2563eb;
+      --accent-2: #0f766e;
+      --danger: #c2413b;
+      --warn: #9a6700;
+      --shadow: 0 8px 22px rgba(15, 23, 42, .08);
+      --shadow-hover: 0 12px 28px rgba(15, 23, 42, .12);
+    }
+    * { box-sizing: border-box; }
+    ::selection { background: rgba(37, 99, 235, .16); color: var(--text); }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font: 14px/1.45 "Segoe UI", "Microsoft YaHei UI", system-ui, sans-serif;
+      letter-spacing: 0;
+      background: var(--bg);
+      color: var(--text);
+    }
+    header {
+      min-height: 82px;
+      padding: 18px 28px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(255, 255, 255, .94);
+      box-shadow: 0 2px 14px rgba(15, 23, 42, .06);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      backdrop-filter: blur(10px);
+    }
+    h1 {
+      margin: 0;
+      font-size: 23px;
+      font-weight: 800;
+      color: #111827;
+    }
+    main {
+      width: min(1220px, calc(100vw - 32px));
+      margin: 20px auto 42px;
+      display: grid;
+      gap: 16px;
+    }
+    section {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 16px;
+      box-shadow: var(--shadow);
+      transition: border-color .16s ease, box-shadow .16s ease, transform .16s ease;
+    }
+    section:hover {
+      border-color: var(--line-strong);
+      box-shadow: var(--shadow-hover);
+      transform: translateY(-1px);
+    }
+    h2 {
+      margin: 0 0 12px;
+      font-size: 15px;
+      color: #111827;
+      letter-spacing: 0;
+    }
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+    button {
+      min-height: 34px;
+      border: 1px solid #cbd5e1;
+      border-radius: 5px;
+      background: #ffffff;
+      color: #1f2937;
+      padding: 6px 11px;
+      cursor: pointer;
+      font-weight: 700;
+      box-shadow: 0 1px 2px rgba(15, 23, 42, .06);
+      transform: translateY(0);
+      transition: transform .14s ease, box-shadow .14s ease, border-color .14s ease, background-color .14s ease, color .14s ease;
+    }
+    button.primary {
+      background: var(--accent);
+      color: #ffffff;
+      border-color: var(--accent);
+    }
+    button.good {
+      background: var(--accent-2);
+      color: #ffffff;
+      border-color: var(--accent-2);
+    }
+    button.danger { color: var(--danger); }
+    button:hover {
+      border-color: var(--line-strong);
+      background: var(--surface-soft);
+      transform: translateY(-1px);
+      box-shadow: 0 6px 16px rgba(15, 23, 42, .12);
+    }
+    button.primary:hover {
+      background: #1d4ed8;
+      border-color: #1d4ed8;
+    }
+    button.good:hover {
+      background: #0d665f;
+      border-color: #0d665f;
+    }
+    button.danger:hover {
+      background: #fff5f5;
+      border-color: #f0b8b5;
+      color: #a73530;
+    }
+    button:active {
+      transform: translateY(0);
+      box-shadow: 0 1px 3px rgba(15, 23, 42, .1);
+    }
+    button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+      outline: 3px solid rgba(37, 99, 235, .16);
+      outline-offset: 2px;
+      border-color: var(--accent);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    th, td {
+      border-top: 1px solid var(--line);
+      padding: 9px 8px;
+      text-align: left;
+      vertical-align: top;
+    }
+    th {
+      color: #475569;
+      font-size: 12px;
+      font-weight: 750;
+      letter-spacing: 0;
+      background: var(--surface-soft);
+    }
+    tbody tr {
+      transition: background-color .14s ease;
+    }
+    tbody tr:hover {
+      background: #f8fafc;
+    }
+    input, select, textarea {
+      width: 100%;
+      min-height: 34px;
+      border: 1px solid #cbd5e1;
+      border-radius: 5px;
+      padding: 6px 8px;
+      font: inherit;
+      color: var(--text);
+      background: #ffffff;
+      transition: border-color .14s ease, box-shadow .14s ease, background-color .14s ease;
+    }
+    select { color-scheme: light; }
+    input:hover, select:hover, textarea:hover {
+      border-color: var(--line-strong);
+      background: #fbfdff;
+    }
+    textarea {
+      min-height: 130px;
+      resize: vertical;
+      font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    .status { color: var(--muted); }
+    .status strong { color: var(--accent); }
+    .error { color: var(--danger); font-weight: 650; }
+    .warn { color: var(--warn); font-weight: 650; }
+    .empty {
+      color: var(--muted);
+      padding: 12px 8px;
+      border-top: 1px solid var(--line);
+    }
+    .commands {
+      display: grid;
+      gap: 8px;
+    }
+    .command {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      align-items: center;
+    }
+    code {
+      display: block;
+      overflow-wrap: anywhere;
+      background: #111827;
+      border: 1px solid #1f2937;
+      border-radius: 5px;
+      padding: 8px;
+      font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+      font-size: 12px;
+      color: #edf2f7;
+    }
+    @media (max-width: 820px) {
+      header { align-items: flex-start; flex-direction: column; }
+      main { width: min(100vw - 20px, 1180px); }
+      .grid { grid-template-columns: 1fr; }
+      .command { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>星愿奖池编辑器</h1>
+      <div class="status" id="stateSummary">正在读取配置...</div>
+    </div>
+    <div class="toolbar">
+      <button class="primary" id="generateButton">生成导入命令</button>
+      <button id="copyAllButton">复制全部</button>
+    </div>
+  </header>
+
+  <main>
+    <section>
+      <h2>卡池排期</h2>
+      <div class="toolbar">
+        <button class="good" id="addScheduleButton">添加排期</button>
+        <span class="status">时间格式：2026-07-10 20:00</span>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 21%">开始时间</th>
+            <th style="width: 21%">结束时间</th>
+            <th style="width: 22%">卡池1</th>
+            <th style="width: 22%">卡池2</th>
+            <th style="width: 14%">操作</th>
+          </tr>
+        </thead>
+        <tbody id="scheduleRows"></tbody>
+      </table>
+      <div id="scheduleEmpty" class="empty">暂无排期。</div>
+    </section>
+
+    <section>
+      <h2>已保存奖品</h2>
+      <div id="itemList"></div>
+    </section>
+
+    <section>
+      <h2>导入命令</h2>
+      <div id="validation" class="status">修改排期后生成命令。</div>
+      <div id="commands" class="commands"></div>
+    </section>
+  </main>
+
+  <script>
+    const blankState = { v: 1, m: 180, items: [], s: [], c: [] };
+    let state = structuredClone(blankState);
+    let lastCommands = [];
+
+    const $ = id => document.getElementById(id);
+
+    function itemLabel(id) {
+      const item = state.items.find(x => x.i === id);
+      return item ? `${stripCodes(item.n)} (${item.i})` : id || "未选择";
+    }
+
+    function stripCodes(text) {
+      return String(text || "").replace(/§[0-9A-FK-OR]/gi, "").replace(/&[0-9A-FK-OR]/gi, "");
+    }
+
+    function optionHtml(selected) {
+      const options = [`<option value="">未选择</option>`];
+      for (const item of state.items) {
+        const label = escapeHtml(`${stripCodes(item.n)} - ${item.d || item.i}`);
+        const value = escapeHtml(item.i);
+        options.push(`<option value="${value}" ${item.i === selected ? "selected" : ""}>${label}</option>`);
+      }
+      return options.join("");
+    }
+
+    function escapeHtml(text) {
+      return String(text ?? "").replace(/[&<>"']/g, c => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+      }[c]));
+    }
+
+    function render() {
+      $("stateSummary").innerHTML = `已读取 <strong>${state.items.length}</strong> 个奖品，<strong>${state.s.length}</strong> 条排期。`;
+      renderSchedule();
+      renderItems();
+      validateOnly();
+    }
+
+    function renderSchedule() {
+      $("scheduleEmpty").style.display = state.s.length ? "none" : "block";
+      $("scheduleRows").innerHTML = state.s.map((row, index) => `
+        <tr>
+          <td><input value="${escapeHtml(row.a || "")}" data-s="${index}" data-k="a"></td>
+          <td><input value="${escapeHtml(row.b || "")}" data-s="${index}" data-k="b"></td>
+          <td><select data-s="${index}" data-k="p1">${optionHtml(row.p1 || "")}</select></td>
+          <td><select data-s="${index}" data-k="p2">${optionHtml(row.p2 || "")}</select></td>
+          <td><button class="danger" data-del-s="${index}">删除</button></td>
+        </tr>
+      `).join("");
+    }
+
+    function renderItems() {
+      if (!state.items.length) {
+        $("itemList").innerHTML = `<div class="empty">暂无奖品。请先在游戏内手持物品添加。</div>`;
+        return;
+      }
+      $("itemList").innerHTML = `<table><thead><tr><th>ID</th><th>名称</th><th>描述</th></tr></thead><tbody>${
+        state.items.map(item => `<tr><td>${escapeHtml(item.i)}</td><td>${escapeHtml(stripCodes(item.n))}</td><td>${escapeHtml(item.d || "")}</td></tr>`).join("")
+      }</tbody></table>`;
+    }
+
+    function collectFromDom() {
+      document.querySelectorAll("[data-s]").forEach(input => {
+        const row = state.s[Number(input.dataset.s)];
+        if (!row) return;
+        row[input.dataset.k] = input.value.trim();
+      });
+    }
+
+    function parseTime(value) {
+      const m = String(value || "").match(/^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})$/);
+      if (!m) return null;
+      const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), Number(m[4]), Number(m[5]), 0, 0);
+      if (Number.isNaN(d.getTime())) return null;
+      return d;
+    }
+
+    function validateState() {
+      collectFromDom();
+      const errors = [];
+      const itemIds = new Set(state.items.map(x => x.i));
+      const ranges = [];
+      state.s.forEach((row, index) => {
+        const start = parseTime(row.a);
+        const end = parseTime(row.b);
+        if (!start || !end) errors.push(`第 ${index + 1} 条排期时间格式不正确。`);
+        if (start && end && start >= end) errors.push(`第 ${index + 1} 条排期结束时间必须晚于开始时间。`);
+        if (row.p1 && !itemIds.has(row.p1)) errors.push(`第 ${index + 1} 条排期的卡池1奖品不存在。`);
+        if (row.p2 && !itemIds.has(row.p2)) errors.push(`第 ${index + 1} 条排期的卡池2奖品不存在。`);
+        if (start && end) ranges.push({ index, start, end });
+      });
+      ranges.sort((x, y) => x.start - y.start);
+      for (let i = 1; i < ranges.length; i++) {
+        if (ranges[i].start < ranges[i - 1].end) {
+          errors.push(`第 ${ranges[i - 1].index + 1} 条和第 ${ranges[i].index + 1} 条排期时间重叠。`);
+        }
+      }
+      return errors;
+    }
+
+    function validateOnly() {
+      const errors = validateState();
+      $("validation").className = errors.length ? "error" : "status";
+      $("validation").textContent = errors.length ? errors.join(" ") : "当前配置可以导入。";
+      return errors;
+    }
+
+    async function generateCommands() {
+      const errors = validateOnly();
+      if (errors.length) return;
+      const payload = await encodePayload({ v: 1, s: state.s, c: [] });
+      const max = Math.max(80, Number(state.m || 180));
+      const single = `/xkgacha apply ${payload}`;
+      if (single.length <= max) {
+        lastCommands = [single];
+      } else {
+        const id = Math.random().toString(36).slice(2, 8);
+        const prefixBudget = `/xkgacha applychunk ${id} 999 999 `.length;
+        const chunkSize = Math.max(48, max - prefixBudget);
+        const chunks = [];
+        for (let i = 0; i < payload.length; i += chunkSize) chunks.push(payload.slice(i, i + chunkSize));
+        lastCommands = chunks.map((chunk, i) => `/xkgacha applychunk ${id} ${i + 1} ${chunks.length} ${chunk}`);
+      }
+      renderCommands();
+    }
+
+    function renderCommands() {
+      $("commands").innerHTML = lastCommands.map((command, index) => `
+        <div class="command">
+          <code>${escapeHtml(command)}</code>
+          <button data-copy="${index}">复制</button>
+        </div>
+      `).join("");
+      if (!lastCommands.length) $("commands").innerHTML = `<div class="empty">暂无命令。</div>`;
+    }
+
+    async function copyText(text) {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const area = document.createElement("textarea");
+        area.value = text;
+        document.body.appendChild(area);
+        area.select();
+        document.execCommand("copy");
+        area.remove();
+      }
+    }
+
+    function bytesToBase64Url(bytes) {
+      let binary = "";
+      bytes.forEach(byte => binary += String.fromCharCode(byte));
+      return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+    }
+
+    function base64UrlToBytes(text) {
+      let base64 = String(text).replace(/-/g, "+").replace(/_/g, "/");
+      while (base64.length % 4) base64 += "=";
+      const binary = atob(base64);
+      return Uint8Array.from(binary, c => c.charCodeAt(0));
+    }
+
+    async function encodePayload(obj) {
+      const raw = new TextEncoder().encode(JSON.stringify(obj));
+      if ("CompressionStream" in window) {
+        try {
+          const stream = new Blob([raw]).stream().pipeThrough(new CompressionStream("deflate-raw"));
+          const compressed = new Uint8Array(await new Response(stream).arrayBuffer());
+          return "d." + bytesToBase64Url(compressed);
+        } catch (_) {}
+      }
+      return "j." + bytesToBase64Url(raw);
+    }
+
+    async function decodePayload(payload) {
+      if (!payload) return structuredClone(blankState);
+      const kind = payload.slice(0, 2);
+      const bytes = base64UrlToBytes(payload.slice(2));
+      let raw = bytes;
+      if (kind === "d." && "DecompressionStream" in window) {
+        const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+        raw = new Uint8Array(await new Response(stream).arrayBuffer());
+      }
+      const parsed = JSON.parse(new TextDecoder().decode(raw));
+      return {
+        ...structuredClone(blankState),
+        ...parsed,
+        items: Array.isArray(parsed.items) ? parsed.items : [],
+        s: Array.isArray(parsed.s) ? parsed.s : [],
+        c: Array.isArray(parsed.c) ? parsed.c : []
+      };
+    }
+
+    document.addEventListener("input", event => {
+      if (event.target.matches("[data-s],[data-c]")) validateOnly();
+    });
+
+    document.addEventListener("click", async event => {
+      const target = event.target;
+      if (target.id === "addScheduleButton") {
+        collectFromDom();
+        state.s.push({ a: "2026-07-10 00:00", b: "2026-07-17 00:00", p1: "", p2: "" });
+        render();
+      }
+      if (target.dataset.delS) {
+        collectFromDom();
+        state.s.splice(Number(target.dataset.delS), 1);
+        render();
+      }
+      if (target.id === "generateButton") await generateCommands();
+      if (target.id === "copyAllButton" && lastCommands.length) await copyText(lastCommands.join("\n"));
+      if (target.dataset.copy) await copyText(lastCommands[Number(target.dataset.copy)] || "");
+    });
+
+    (async function init() {
+      try {
+        state = await decodePayload(new URLSearchParams(location.search).get("s"));
+        render();
+      } catch (error) {
+        $("stateSummary").textContent = "配置读取失败。";
+        $("validation").className = "error";
+        $("validation").textContent = error.message || String(error);
+      }
+    })();
+  </script>
+</body>
+</html>
