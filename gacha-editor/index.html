@@ -269,15 +269,15 @@
   </main>
 
   <script>
-    const blankState = { v: 1, m: 180, items: [], s: [], c: [] };
+    const blankState = { v: 2, m: 180, items: [], s: [], c: [] };
     let state = structuredClone(blankState);
     let lastCommands = [];
 
     const $ = id => document.getElementById(id);
 
-    function itemLabel(id) {
-      const item = state.items.find(x => x.i === id);
-      return item ? `${stripCodes(item.n)} (${item.i})` : id || "未选择";
+    function itemLabel(name) {
+      const item = state.items.find(x => x.n === name);
+      return item ? stripCodes(item.n) : name || "未选择";
     }
 
     function stripCodes(text) {
@@ -287,9 +287,9 @@
     function optionHtml(selected) {
       const options = [`<option value="">未选择</option>`];
       for (const item of state.items) {
-        const label = escapeHtml(`${stripCodes(item.n)} - ${item.d || item.i}`);
-        const value = escapeHtml(item.i);
-        options.push(`<option value="${value}" ${item.i === selected ? "selected" : ""}>${label}</option>`);
+        const label = escapeHtml(`${stripCodes(item.n)} - ${item.d || "无描述"}`);
+        const value = escapeHtml(item.n);
+        options.push(`<option value="${value}" ${item.n === selected ? "selected" : ""}>${label}</option>`);
       }
       return options.join("");
     }
@@ -325,8 +325,8 @@
         $("itemList").innerHTML = `<div class="empty">暂无奖品。请先在游戏内手持物品添加。</div>`;
         return;
       }
-      $("itemList").innerHTML = `<table><thead><tr><th>ID</th><th>名称</th><th>描述</th></tr></thead><tbody>${
-        state.items.map(item => `<tr><td>${escapeHtml(item.i)}</td><td>${escapeHtml(stripCodes(item.n))}</td><td>${escapeHtml(item.d || "")}</td></tr>`).join("")
+      $("itemList").innerHTML = `<table><thead><tr><th>名称</th><th>描述</th></tr></thead><tbody>${
+        state.items.map(item => `<tr><td>${escapeHtml(stripCodes(item.n))}</td><td>${escapeHtml(item.d || "")}</td></tr>`).join("")
       }</tbody></table>`;
     }
 
@@ -349,15 +349,15 @@
     function validateState() {
       collectFromDom();
       const errors = [];
-      const itemIds = new Set(state.items.map(x => x.i));
+      const itemNames = new Set(state.items.map(x => x.n));
       const ranges = [];
       state.s.forEach((row, index) => {
         const start = parseTime(row.a);
         const end = parseTime(row.b);
         if (!start || !end) errors.push(`第 ${index + 1} 条排期时间格式不正确。`);
         if (start && end && start >= end) errors.push(`第 ${index + 1} 条排期结束时间必须晚于开始时间。`);
-        if (row.p1 && !itemIds.has(row.p1)) errors.push(`第 ${index + 1} 条排期的卡池1奖品不存在。`);
-        if (row.p2 && !itemIds.has(row.p2)) errors.push(`第 ${index + 1} 条排期的卡池2奖品不存在。`);
+        if (row.p1 && !itemNames.has(row.p1)) errors.push(`第 ${index + 1} 条排期的卡池1奖品不存在。`);
+        if (row.p2 && !itemNames.has(row.p2)) errors.push(`第 ${index + 1} 条排期的卡池2奖品不存在。`);
         if (start && end) ranges.push({ index, start, end });
       });
       ranges.sort((x, y) => x.start - y.start);
@@ -379,7 +379,7 @@
     async function generateCommands() {
       const errors = validateOnly();
       if (errors.length) return;
-      const payload = await encodePayload({ v: 1, s: state.s, c: [] });
+      const payload = await encodePayload({ v: 2, s: state.s, c: [] });
       const max = Math.max(80, Number(state.m || 180));
       const single = `/xkgacha apply ${payload}`;
       if (single.length <= max) {
@@ -453,12 +453,25 @@
         raw = new Uint8Array(await new Response(stream).arrayBuffer());
       }
       const parsed = JSON.parse(new TextDecoder().decode(raw));
+      const rawItems = Array.isArray(parsed.items) ? parsed.items : [];
+      const legacyNames = new Map(rawItems.filter(item => item.i && item.n).map(item => [item.i, item.n]));
+      const items = rawItems.map(item => ({ n: item.n || item.i || "", d: item.d || "" }));
+      const schedules = (Array.isArray(parsed.s) ? parsed.s : []).map(row => ({
+        ...row,
+        p1: legacyNames.get(row.p1) || row.p1 || "",
+        p2: legacyNames.get(row.p2) || row.p2 || ""
+      }));
+      const comfort = (Array.isArray(parsed.c) ? parsed.c : []).map(entry => ({
+        n: legacyNames.get(entry.n || entry.i) || entry.n || entry.i || "",
+        w: entry.w
+      }));
       return {
         ...structuredClone(blankState),
         ...parsed,
-        items: Array.isArray(parsed.items) ? parsed.items : [],
-        s: Array.isArray(parsed.s) ? parsed.s : [],
-        c: Array.isArray(parsed.c) ? parsed.c : []
+        v: 2,
+        items,
+        s: schedules,
+        c: comfort
       };
     }
 
