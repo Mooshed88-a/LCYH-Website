@@ -1,0 +1,596 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>XKMail Editor</title>
+  <!--
+    Assumptions:
+    - This is an administrator tool and should match the existing XKGacha editor.
+    - Raw Minecraft color codes remain visible while a live preview confirms parsing.
+    - The test-player target is the safest default for a newly opened editor.
+    - The page is fully static; all server state arrives through the compressed s query parameter.
+  -->
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f5f7fa;
+      --surface: #ffffff;
+      --surface-soft: #f8fafc;
+      --text: #1f2933;
+      --muted: #667085;
+      --line: #d9e2ec;
+      --line-strong: #9fb3c8;
+      --accent: #2563eb;
+      --accent-hover: #1d4ed8;
+      --good: #0f766e;
+      --danger: #c2413b;
+      --warn: #9a6700;
+      --shadow: 0 8px 22px rgba(15, 23, 42, .08);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font: 14px/1.55 "Segoe UI", "Microsoft YaHei UI", system-ui, sans-serif;
+      letter-spacing: 0;
+      color: var(--text);
+      background: var(--bg);
+    }
+    button, input, textarea { font: inherit; letter-spacing: 0; }
+    button, label, input, textarea { -webkit-tap-highlight-color: transparent; }
+    header {
+      min-height: 82px;
+      padding: 16px 28px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(255, 255, 255, .95);
+      box-shadow: 0 2px 14px rgba(15, 23, 42, .06);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      backdrop-filter: blur(10px);
+    }
+    h1 { margin: 0; font-size: 23px; line-height: 1.25; color: #111827; }
+    h2 { margin: 0; font-size: 15px; line-height: 1.35; color: #111827; }
+    p { text-wrap: pretty; }
+    .status { color: var(--muted); }
+    .status strong { color: var(--accent); }
+    .header-actions, .toolbar, .format-tools, .inline { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    main { width: min(1280px, calc(100vw - 32px)); margin: 20px auto 42px; }
+    .workspace { display: grid; grid-template-columns: minmax(0, 1fr) 390px; gap: 16px; align-items: start; }
+    .editor-column { display: grid; gap: 16px; min-width: 0; }
+    section {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 16px;
+      box-shadow: var(--shadow);
+    }
+    .section-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 12px; }
+    .section-head .status { font-size: 12px; text-align: right; }
+    .field-grid { display: grid; grid-template-columns: minmax(0, 1fr) 180px 130px; gap: 12px; }
+    .field { display: grid; gap: 6px; min-width: 0; }
+    .field > span, .field-label { color: #475569; font-size: 12px; font-weight: 750; }
+    input, textarea {
+      width: 100%;
+      min-height: 38px;
+      border: 1px solid #cbd5e1;
+      border-radius: 5px;
+      padding: 8px 10px;
+      color: var(--text);
+      background: #ffffff;
+      outline: none;
+      transition: border-color .14s ease, box-shadow .14s ease, background-color .14s ease;
+    }
+    textarea { min-height: 144px; resize: vertical; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; line-height: 1.55; }
+    #commandInput { min-height: 112px; }
+    input:hover, textarea:hover { border-color: var(--line-strong); background: #fbfdff; }
+    input:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(37, 99, 235, .13); }
+    button {
+      min-height: 36px;
+      border: 1px solid #cbd5e1;
+      border-radius: 5px;
+      padding: 7px 12px;
+      color: #1f2937;
+      background: #ffffff;
+      cursor: pointer;
+      font-weight: 700;
+      box-shadow: 0 1px 2px rgba(15, 23, 42, .06);
+      transition: transform .14s ease, box-shadow .14s ease, border-color .14s ease, background-color .14s ease;
+    }
+    button:hover { border-color: var(--line-strong); background: var(--surface-soft); transform: translateY(-1px); box-shadow: 0 5px 14px rgba(15, 23, 42, .11); }
+    button:active { transform: none; box-shadow: 0 1px 2px rgba(15, 23, 42, .06); }
+    button:focus-visible { outline: 3px solid rgba(37, 99, 235, .16); outline-offset: 2px; }
+    button.primary { color: #fff; border-color: var(--accent); background: var(--accent); }
+    button.primary:hover { border-color: var(--accent-hover); background: var(--accent-hover); }
+    button.good { color: #fff; border-color: var(--good); background: var(--good); }
+    button[disabled] { cursor: not-allowed; opacity: .45; transform: none; box-shadow: none; }
+    .format-tools { padding: 9px; border: 1px solid var(--line); border-bottom: 0; border-radius: 5px 5px 0 0; background: var(--surface-soft); }
+    .format-tools + textarea { border-radius: 0 0 5px 5px; }
+    .format-button { width: 36px; padding: 0; font-family: Georgia, serif; font-size: 16px; }
+    .format-button.italic { font-style: italic; }
+    .format-button.underline { text-decoration: underline; }
+    .swatch {
+      width: 30px;
+      min-height: 30px;
+      padding: 0;
+      border-color: rgba(15, 23, 42, .22);
+      background: var(--swatch);
+    }
+    .swatch:hover { background: var(--swatch); }
+    .tool-separator { width: 1px; height: 24px; background: var(--line); margin: 0 2px; }
+    .helper { margin: 7px 0 0; color: var(--muted); font-size: 12px; }
+    .material-picker { margin-top: 12px; display: grid; gap: 8px; }
+    .material-list { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; max-height: 190px; overflow: auto; padding-right: 3px; }
+    .material-option { min-height: 42px; padding: 6px 8px; display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 7px; align-items: center; text-align: left; font-size: 12px; font-weight: 650; }
+    .material-option.selected { border-color: var(--accent); background: #eff6ff; box-shadow: 0 0 0 2px rgba(37, 99, 235, .11); }
+    .material-mark { width: 16px; height: 16px; border: 1px solid rgba(15, 23, 42, .25); background: var(--material-color); box-shadow: inset -3px -3px rgba(0, 0, 0, .12); }
+    .material-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .segments { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+    .segment { position: relative; display: block; }
+    .segment input { position: absolute; opacity: 0; pointer-events: none; }
+    .segment span { min-height: 42px; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 5px; display: grid; place-items: center; text-align: center; font-weight: 750; cursor: pointer; background: #fff; }
+    .segment input:checked + span { color: #1d4ed8; border-color: var(--accent); background: #eff6ff; box-shadow: 0 0 0 2px rgba(37, 99, 235, .10); }
+    .segment input:disabled + span { opacity: .42; cursor: not-allowed; }
+    .conditional { margin-top: 10px; }
+    .check-row { display: flex; align-items: flex-start; gap: 9px; cursor: pointer; }
+    .check-row input { width: 18px; min-height: 18px; margin: 2px 0 0; accent-color: var(--accent); }
+    .check-row strong { display: block; }
+    .preview-column { position: sticky; top: 102px; display: grid; gap: 16px; }
+    .preview-shell { min-height: 360px; padding: 18px; background: #d9dee6; border: 1px solid #bcc5d1; display: grid; place-items: center; }
+    .slot-preview { width: min(100%, 326px); display: grid; grid-template-columns: 48px minmax(0, 1fr); gap: 12px; align-items: start; }
+    .item-slot { width: 48px; height: 48px; border: 2px solid #777; border-top-color: #222; border-left-color: #222; background: #8b8b8b; display: grid; place-items: center; }
+    .item-cube { width: 31px; height: 31px; background: var(--icon-color, #d9b36c); border: 2px solid rgba(255,255,255,.3); box-shadow: inset -7px -7px rgba(0,0,0,.18), 2px 2px rgba(0,0,0,.35); }
+    .minecraft-tooltip {
+      min-width: 0;
+      padding: 8px 10px;
+      color: #fff;
+      background: #100010;
+      border: 2px solid #2b0b4f;
+      box-shadow: inset 0 0 0 1px #5000a0, 3px 3px rgba(0,0,0,.28);
+      font: 16px/1.35 "Segoe UI", "Microsoft YaHei UI", sans-serif;
+      overflow-wrap: anywhere;
+    }
+    .preview-line { min-height: 21px; white-space: pre-wrap; }
+    .preview-title { margin-bottom: 4px; }
+    .preview-separator { height: 7px; }
+    .preview-meta { color: #aaa; }
+    .preview-action { color: #ffff55; margin-top: 3px; }
+    .summary-list { display: grid; gap: 0; margin: 0; }
+    .summary-row { display: grid; grid-template-columns: 100px minmax(0, 1fr); gap: 10px; padding: 8px 0; border-top: 1px solid var(--line); }
+    .summary-row:first-child { border-top: 0; }
+    .summary-row dt { color: var(--muted); }
+    .summary-row dd { margin: 0; font-weight: 650; overflow-wrap: anywhere; }
+    .output { margin-top: 16px; }
+    .validation { min-height: 22px; margin-bottom: 9px; }
+    .error { color: var(--danger); font-weight: 700; }
+    .success { color: var(--good); font-weight: 700; }
+    .commands { display: grid; gap: 8px; }
+    .command { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: center; }
+    code { display: block; padding: 9px; border: 1px solid #1f2937; border-radius: 5px; color: #edf2f7; background: #111827; font: 12px/1.5 ui-monospace, SFMono-Regular, Consolas, monospace; overflow-wrap: anywhere; }
+    .empty-output { color: var(--muted); padding: 10px 0; }
+    * { scrollbar-width: thin; scrollbar-color: #94a3b8 transparent; }
+    @media (max-width: 980px) {
+      .workspace { grid-template-columns: 1fr; }
+      .preview-column { position: static; grid-template-columns: 1fr 1fr; }
+      .field-grid { grid-template-columns: 1fr 1fr; }
+      .field-grid .title-field { grid-column: 1 / -1; }
+    }
+    @media (max-width: 680px) {
+      header { padding: 14px 16px; align-items: flex-start; flex-direction: column; }
+      main { width: min(100vw - 20px, 1280px); margin-top: 10px; }
+      .header-actions { width: 100%; }
+      .header-actions button { flex: 1; }
+      .field-grid, .preview-column { grid-template-columns: 1fr; }
+      .field-grid .title-field { grid-column: auto; }
+      .material-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .segments { grid-template-columns: 1fr 1fr; }
+      .command { grid-template-columns: 1fr; }
+      .slot-preview { grid-template-columns: 42px minmax(0, 1fr); gap: 8px; }
+      .item-slot { width: 42px; height: 42px; }
+      .item-cube { width: 27px; height: 27px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>星空岛邮件编辑器</h1>
+      <div class="status" id="stateSummary">正在读取邮件配置...</div>
+    </div>
+    <div class="header-actions">
+      <button class="primary" id="generateButton">生成导入命令</button>
+      <button id="copyAllButton" disabled>复制全部</button>
+    </div>
+  </header>
+
+  <main>
+    <div class="workspace">
+      <div class="editor-column">
+        <section>
+          <div class="section-head"><h2>邮件设置</h2><span class="status">默认 3 天后过期</span></div>
+          <div class="field-grid">
+            <label class="field title-field"><span>邮件名称</span><input id="titleInput" maxlength="200" placeholder="例如：本周维护补偿"></label>
+            <label class="field"><span>物品图标</span><input id="iconInput" maxlength="64" value="PAPER" spellcheck="false"></label>
+            <label class="field"><span>有效天数</span><input id="expiryInput" type="number" min="1" max="3650" value="3"></label>
+          </div>
+          <div class="material-picker">
+            <label class="field"><span>简易物品选择器</span><input id="materialSearch" placeholder="搜索：书、钻石、下界之星..."></label>
+            <div class="material-list" id="materialList"></div>
+          </div>
+        </section>
+
+        <section>
+          <div class="section-head"><h2>邮件内容</h2><span class="status">每行会成为菜单 Lore 的一行</span></div>
+          <div class="format-tools" aria-label="颜色与格式工具栏">
+            <button class="format-button" data-code="&l" title="粗体" aria-label="插入粗体代码"><b>B</b></button>
+            <button class="format-button italic" data-code="&o" title="斜体" aria-label="插入斜体代码">I</button>
+            <button class="format-button underline" data-code="&n" title="下划线" aria-label="插入下划线代码">U</button>
+            <button class="format-button" data-code="&r" title="重置格式" aria-label="插入重置代码">R</button>
+            <span class="tool-separator"></span>
+            <button class="swatch" style="--swatch:#000000" data-code="&0" title="黑色" aria-label="黑色"></button>
+            <button class="swatch" style="--swatch:#0000aa" data-code="&1" title="深蓝" aria-label="深蓝"></button>
+            <button class="swatch" style="--swatch:#00aa00" data-code="&2" title="深绿" aria-label="深绿"></button>
+            <button class="swatch" style="--swatch:#00aaaa" data-code="&3" title="青色" aria-label="青色"></button>
+            <button class="swatch" style="--swatch:#aa0000" data-code="&4" title="深红" aria-label="深红"></button>
+            <button class="swatch" style="--swatch:#aa00aa" data-code="&5" title="紫色" aria-label="紫色"></button>
+            <button class="swatch" style="--swatch:#ffaa00" data-code="&6" title="金色" aria-label="金色"></button>
+            <button class="swatch" style="--swatch:#aaaaaa" data-code="&7" title="灰色" aria-label="灰色"></button>
+            <button class="swatch" style="--swatch:#555555" data-code="&8" title="深灰" aria-label="深灰"></button>
+            <button class="swatch" style="--swatch:#5555ff" data-code="&9" title="蓝色" aria-label="蓝色"></button>
+            <button class="swatch" style="--swatch:#55ff55" data-code="&a" title="绿色" aria-label="绿色"></button>
+            <button class="swatch" style="--swatch:#55ffff" data-code="&b" title="天蓝" aria-label="天蓝"></button>
+            <button class="swatch" style="--swatch:#ff5555" data-code="&c" title="红色" aria-label="红色"></button>
+            <button class="swatch" style="--swatch:#ff55ff" data-code="&d" title="粉色" aria-label="粉色"></button>
+            <button class="swatch" style="--swatch:#ffff55" data-code="&e" title="黄色" aria-label="黄色"></button>
+            <button class="swatch" style="--swatch:#ffffff" data-code="&f" title="白色" aria-label="白色"></button>
+            <input id="hexPicker" type="color" value="#58a6ff" title="选择十六进制颜色" aria-label="选择十六进制颜色" style="width:36px;min-height:30px;padding:2px">
+          </div>
+          <textarea id="contentInput" placeholder="&7感谢你一直支持星空岛！&#58a6ff 也支持十六进制颜色。"></textarea>
+          <p class="helper">支持 <code style="display:inline;padding:1px 4px">&amp;0-&amp;f</code>、<code style="display:inline;padding:1px 4px">&amp;l</code> 等传统代码，以及 <code style="display:inline;padding:1px 4px">&amp;#RRGGBB</code> 十六进制颜色。</p>
+        </section>
+
+        <section>
+          <div class="section-head"><h2>领取时执行</h2><span class="status">一行一条控制台命令</span></div>
+          <textarea id="commandInput" placeholder="give {player} diamond 3&#10;points give {player} 100"></textarea>
+          <p class="helper">使用 <strong>{player}</strong> 代表领取玩家名。命令可不写开头的斜杠；留空则邮件只用于通知。</p>
+        </section>
+
+        <section>
+          <div class="section-head"><h2>发送对象</h2><span class="status">新编辑器默认选中测试账号</span></div>
+          <div class="segments" id="targetSegments">
+            <label class="segment"><input type="radio" name="target" value="test" checked><span id="testTargetLabel">Mooshed88_</span></label>
+            <label class="segment"><input type="radio" name="target" value="players"><span>指定玩家</span></label>
+            <label class="segment"><input type="radio" name="target" value="all"><span>全体玩家</span></label>
+            <label class="segment"><input type="radio" name="target" value="none" id="noneTarget" disabled><span>不发送</span></label>
+          </div>
+          <div class="conditional" id="playersField" hidden>
+            <label class="field"><span>玩家名，可用逗号或空格分隔</span><input id="playersInput" placeholder="Steve, Alex"></label>
+          </div>
+        </section>
+
+        <section>
+          <div class="section-head"><h2>模板</h2><span class="status" id="sourceTemplate">当前从头编辑</span></div>
+          <label class="check-row">
+            <input type="checkbox" id="saveTemplateInput">
+            <span><strong>同时保存为模板</strong><span class="status">可选择“不发送”，只保存模板。</span></span>
+          </label>
+          <div class="conditional" id="templateNameField" hidden>
+            <label class="field"><span>模板名称</span><input id="templateNameInput" maxlength="80" placeholder="例如：每周补偿"></label>
+          </div>
+        </section>
+      </div>
+
+      <aside class="preview-column">
+        <section>
+          <div class="section-head"><h2>游戏内预览</h2><span class="status">箱子菜单样式</span></div>
+          <div class="preview-shell">
+            <div class="slot-preview">
+              <div class="item-slot"><div class="item-cube" id="itemCube"></div></div>
+              <div class="minecraft-tooltip" id="mailPreview"></div>
+            </div>
+          </div>
+        </section>
+        <section>
+          <div class="section-head"><h2>发送摘要</h2></div>
+          <dl class="summary-list">
+            <div class="summary-row"><dt>目标</dt><dd id="targetSummary">Mooshed88_</dd></div>
+            <div class="summary-row"><dt>领取命令</dt><dd id="commandSummary">0 条</dd></div>
+            <div class="summary-row"><dt>过期</dt><dd id="expirySummary">3 天后</dd></div>
+            <div class="summary-row"><dt>图标</dt><dd id="iconSummary">PAPER</dd></div>
+          </dl>
+        </section>
+      </aside>
+    </div>
+
+    <section class="output">
+      <div class="section-head"><h2>导入命令</h2><span class="status">按顺序在游戏内执行</span></div>
+      <div id="validation" class="validation status">填写邮件后生成命令。</div>
+      <div id="commands" class="commands"><div class="empty-output">暂无命令。</div></div>
+    </section>
+  </main>
+
+  <script>
+    const blankState = { v: 1, m: 180, x: "Mooshed88_", t: "", b: [""], i: "PAPER", c: [], e: 3, n: "" };
+    const colorMap = {
+      0: "#000000", 1: "#0000aa", 2: "#00aa00", 3: "#00aaaa", 4: "#aa0000", 5: "#aa00aa", 6: "#ffaa00", 7: "#aaaaaa",
+      8: "#555555", 9: "#5555ff", a: "#55ff55", b: "#55ffff", c: "#ff5555", d: "#ff55ff", e: "#ffff55", f: "#ffffff"
+    };
+    const materials = [
+      ["PAPER", "纸", "#e7e0c5"], ["BOOK", "书", "#8b5a2b"], ["WRITABLE_BOOK", "书与笔", "#936f48"], ["ENCHANTED_BOOK", "附魔书", "#9b59b6"],
+      ["CHEST", "箱子", "#b87935"], ["ENDER_CHEST", "末影箱", "#184f4b"], ["BARREL", "木桶", "#9a6636"], ["BUNDLE", "收纳袋", "#855b3e"],
+      ["NETHER_STAR", "下界之星", "#d7f5ee"], ["DIAMOND", "钻石", "#43d9cf"], ["EMERALD", "绿宝石", "#24c65a"], ["GOLD_INGOT", "金锭", "#f6d44a"],
+      ["IRON_INGOT", "铁锭", "#d8d8d8"], ["COPPER_INGOT", "铜锭", "#c97853"], ["AMETHYST_SHARD", "紫水晶", "#9d6dcc"], ["LAPIS_LAZULI", "青金石", "#3155b5"],
+      ["REDSTONE", "红石", "#c51f24"], ["COAL", "煤炭", "#2f3136"], ["QUARTZ", "下界石英", "#e7ddd3"], ["PRISMARINE_CRYSTALS", "海晶砂粒", "#7ed7c4"],
+      ["EXPERIENCE_BOTTLE", "经验瓶", "#8dcc55"], ["CLOCK", "时钟", "#dfb83f"], ["COMPASS", "指南针", "#b9c1c8"], ["RECOVERY_COMPASS", "追溯指针", "#3b8b88"],
+      ["NAME_TAG", "命名牌", "#d7c9a5"], ["TOTEM_OF_UNDYING", "不死图腾", "#d6bc54"], ["HEART_OF_THE_SEA", "海洋之心", "#2f8ca3"], ["DRAGON_EGG", "龙蛋", "#251729"],
+      ["DIAMOND_SWORD", "钻石剑", "#4adbd0"], ["NETHERITE_SWORD", "下界合金剑", "#4b4148"], ["BOW", "弓", "#8b6842"], ["CROSSBOW", "弩", "#7c5b3c"],
+      ["TRIDENT", "三叉戟", "#5faaa0"], ["SHIELD", "盾牌", "#9b7048"], ["DIAMOND_PICKAXE", "钻石镐", "#4adbd0"], ["NETHERITE_PICKAXE", "下界合金镐", "#4b4148"],
+      ["ELYTRA", "鞘翅", "#9a8b91"], ["DIAMOND_CHESTPLATE", "钻石胸甲", "#4adbd0"], ["NETHERITE_CHESTPLATE", "下界合金胸甲", "#4b4148"], ["TURTLE_HELMET", "海龟壳", "#4c9a53"],
+      ["GOLDEN_APPLE", "金苹果", "#efcf3f"], ["ENCHANTED_GOLDEN_APPLE", "附魔金苹果", "#d590d9"], ["CAKE", "蛋糕", "#f0d7c0"], ["COOKIE", "曲奇", "#b8783d"],
+      ["HONEY_BOTTLE", "蜂蜜瓶", "#e49b22"], ["POTION", "药水", "#a85dc2"], ["MILK_BUCKET", "奶桶", "#d7d7d7"], ["GOLDEN_CARROT", "金胡萝卜", "#f1b82f"],
+      ["FIREWORK_ROCKET", "烟花火箭", "#d34c4c"], ["FIRE_CHARGE", "火焰弹", "#e56a26"], ["BLAZE_POWDER", "烈焰粉", "#e7a32e"], ["GHAST_TEAR", "恶魂之泪", "#e6e6e6"],
+      ["ENDER_PEARL", "末影珍珠", "#23857b"], ["EYE_OF_ENDER", "末影之眼", "#5b9b48"], ["SHULKER_SHELL", "潜影壳", "#94678f"], ["NETHERITE_UPGRADE_SMITHING_TEMPLATE", "下界合金升级模板", "#6d5555"],
+      ["BEACON", "信标", "#bdebe5"], ["SPAWNER", "刷怪笼", "#3c4549"], ["HOPPER", "漏斗", "#555a5f"], ["ANVIL", "铁砧", "#595959"],
+      ["GRASS_BLOCK", "草方块", "#6e9f3e"], ["STONE", "石头", "#7d7d7d"], ["OBSIDIAN", "黑曜石", "#251a35"], ["BEDROCK", "基岩", "#4e4e4e"],
+      ["OAK_SAPLING", "橡树树苗", "#4f8b38"], ["WHEAT", "小麦", "#c8a83a"], ["CARROT", "胡萝卜", "#e67f22"], ["MELON_SLICE", "西瓜片", "#d34b4b"],
+      ["SUNFLOWER", "向日葵", "#e5bb33"], ["POPPY", "虞美人", "#c93638"], ["BLUE_ORCHID", "兰花", "#5ab4cf"], ["WITHER_ROSE", "凋零玫瑰", "#252525"]
+    ];
+
+    let state = structuredClone(blankState);
+    let lastCommands = [];
+    let activeTextInput = null;
+    const $ = id => document.getElementById(id);
+
+    function lines(value) { return String(value ?? "").replace(/\r/g, "").split("\n"); }
+    function nonBlankLines(value) { return lines(value).map(x => x.trim()).filter(Boolean); }
+    function selectedTarget() { return document.querySelector('input[name="target"]:checked')?.value || "none"; }
+    function materialColor(id) { return materials.find(x => x[0] === id)?.[2] || "#c5cbd3"; }
+
+    function renderMaterials() {
+      const query = $("materialSearch").value.trim().toLowerCase();
+      const visible = materials.filter(([id, name]) => !query || id.toLowerCase().includes(query) || name.includes(query)).slice(0, 80);
+      $("materialList").innerHTML = visible.map(([id, name, color]) => `
+        <button class="material-option ${$("iconInput").value.trim().toUpperCase() === id ? "selected" : ""}" data-material="${id}" title="${id}">
+          <span class="material-mark" style="--material-color:${color}"></span><span class="material-name">${name}</span>
+        </button>`).join("") || '<div class="empty-output">没有匹配的内置物品，可直接输入 Material 名称。</div>';
+    }
+
+    function appendLegacy(parent, text) {
+      const source = String(text ?? "");
+      const style = { color: "#ffffff", bold: false, italic: false, underline: false, strike: false, obfuscated: false };
+      let buffer = "";
+      const flush = () => {
+        if (!buffer) return;
+        const span = document.createElement("span");
+        span.textContent = style.obfuscated ? buffer.replace(/[^ ]/g, "░") : buffer;
+        span.style.color = style.color;
+        span.style.fontWeight = style.bold ? "800" : "400";
+        span.style.fontStyle = style.italic ? "italic" : "normal";
+        const decorations = [];
+        if (style.underline) decorations.push("underline");
+        if (style.strike) decorations.push("line-through");
+        span.style.textDecoration = decorations.join(" ") || "none";
+        parent.appendChild(span);
+        buffer = "";
+      };
+      const resetFormats = () => Object.assign(style, { bold: false, italic: false, underline: false, strike: false, obfuscated: false });
+      for (let i = 0; i < source.length; i++) {
+        if ((source[i] === "&" || source[i] === "§") && i + 1 < source.length) {
+          if (source[i + 1] === "#" && /^[0-9a-fA-F]{6}$/.test(source.slice(i + 2, i + 8))) {
+            flush(); style.color = "#" + source.slice(i + 2, i + 8); resetFormats(); i += 7; continue;
+          }
+          const code = source[i + 1].toLowerCase();
+          if (colorMap[code] || "klmnor".includes(code)) {
+            flush(); i++;
+            if (colorMap[code]) { style.color = colorMap[code]; resetFormats(); }
+            if (code === "k") style.obfuscated = true;
+            if (code === "l") style.bold = true;
+            if (code === "m") style.strike = true;
+            if (code === "n") style.underline = true;
+            if (code === "o") style.italic = true;
+            if (code === "r") Object.assign(style, { color: "#ffffff", bold: false, italic: false, underline: false, strike: false, obfuscated: false });
+            continue;
+          }
+        }
+        buffer += source[i];
+      }
+      flush();
+    }
+
+    function previewLine(text, className = "preview-line") {
+      const row = document.createElement("div");
+      row.className = className;
+      appendLegacy(row, text);
+      return row;
+    }
+
+    function renderPreview() {
+      const preview = $("mailPreview");
+      preview.replaceChildren();
+      preview.appendChild(previewLine($("titleInput").value || "&7未命名邮件", "preview-line preview-title"));
+      lines($("contentInput").value).forEach(line => preview.appendChild(previewLine(line)));
+      const gap = document.createElement("div"); gap.className = "preview-separator"; preview.appendChild(gap);
+      preview.appendChild(previewLine(`&8过期时间：&7${Math.max(1, Number($("expiryInput").value || 3))} 天后`, "preview-line preview-meta"));
+      preview.appendChild(previewLine(nonBlankLines($("commandInput").value).length ? "&e点击领取" : "&e点击确认", "preview-line preview-action"));
+      const icon = $("iconInput").value.trim().toUpperCase() || "PAPER";
+      $("itemCube").style.setProperty("--icon-color", materialColor(icon));
+      $("iconSummary").textContent = icon;
+      $("commandSummary").textContent = `${nonBlankLines($("commandInput").value).length} 条`;
+      $("expirySummary").textContent = `${Math.max(1, Number($("expiryInput").value || 3))} 天后`;
+      const target = selectedTarget();
+      $("targetSummary").textContent = target === "all" ? "全体玩家" : target === "players" ? ($("playersInput").value.trim() || "未填写") : target === "none" ? "仅保存模板" : state.x;
+      renderMaterials();
+    }
+
+    function syncConditional() {
+      const target = selectedTarget();
+      $("playersField").hidden = target !== "players";
+      const save = $("saveTemplateInput").checked;
+      $("templateNameField").hidden = !save;
+      $("noneTarget").disabled = !save;
+      if (!save && target === "none") document.querySelector('input[name="target"][value="test"]').checked = true;
+      renderPreview();
+    }
+
+    function insertCode(code) {
+      const input = activeTextInput || $("contentInput");
+      const start = input.selectionStart ?? input.value.length;
+      const end = input.selectionEnd ?? input.value.length;
+      input.setRangeText(code, start, end, "end");
+      input.focus();
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+
+    function validate() {
+      const errors = [];
+      const title = $("titleInput").value.trim();
+      const expiry = Number($("expiryInput").value);
+      const icon = $("iconInput").value.trim().toUpperCase();
+      const target = selectedTarget();
+      if (!title) errors.push("请填写邮件名称。");
+      if (!icon) errors.push("请填写物品图标。");
+      if (!Number.isInteger(expiry) || expiry < 1 || expiry > 3650) errors.push("有效天数必须是 1-3650 的整数。");
+      if (target === "players" && !nonBlankLines($("playersInput").value.replace(/[，, ]+/g, "\n")).length) errors.push("请填写指定玩家名。");
+      if (target === "none" && !$("saveTemplateInput").checked) errors.push("不发送时必须保存为模板。");
+      if ($("saveTemplateInput").checked && !$("templateNameInput").value.trim()) errors.push("请填写模板名称。");
+      $("validation").className = `validation ${errors.length ? "error" : "success"}`;
+      $("validation").textContent = errors.length ? errors.join(" ") : "当前邮件可以导入。";
+      return errors;
+    }
+
+    function importObject() {
+      const target = selectedTarget();
+      const players = target === "players" ? $("playersInput").value.split(/[，,\s]+/).map(x => x.trim()).filter(Boolean) : [];
+      return {
+        v: 1,
+        t: $("titleInput").value.trim(),
+        b: lines($("contentInput").value),
+        i: $("iconInput").value.trim().toUpperCase(),
+        c: nonBlankLines($("commandInput").value),
+        e: Number($("expiryInput").value),
+        a: target,
+        p: players,
+        z: $("saveTemplateInput").checked,
+        n: $("templateNameInput").value.trim()
+      };
+    }
+
+    async function generateCommands() {
+      if (validate().length) return;
+      const payload = await encodePayload(importObject());
+      const max = Math.max(80, Number(state.m || 180));
+      const single = `/xkmail apply ${payload}`;
+      if (single.length <= max) {
+        lastCommands = [single];
+      } else {
+        const id = Math.random().toString(36).slice(2, 8);
+        const prefixBudget = `/xkmail applychunk ${id} 999 999 `.length;
+        const chunkSize = Math.max(48, max - prefixBudget);
+        const chunks = [];
+        for (let i = 0; i < payload.length; i += chunkSize) chunks.push(payload.slice(i, i + chunkSize));
+        lastCommands = chunks.map((chunk, index) => `/xkmail applychunk ${id} ${index + 1} ${chunks.length} ${chunk}`);
+      }
+      renderCommands();
+    }
+
+    function escapeHtml(text) {
+      return String(text ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
+    }
+
+    function renderCommands() {
+      $("commands").innerHTML = lastCommands.length ? lastCommands.map((command, index) => `
+        <div class="command"><code>${escapeHtml(command)}</code><button data-copy="${index}">复制</button></div>`).join("") : '<div class="empty-output">暂无命令。</div>';
+      $("copyAllButton").disabled = !lastCommands.length;
+    }
+
+    async function copyText(text) {
+      try {
+        if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(text);
+        else throw new Error("clipboard unavailable");
+      } catch (_) {
+        const area = document.createElement("textarea"); area.value = text; area.style.position = "fixed"; area.style.opacity = "0";
+        document.body.appendChild(area); area.select(); document.execCommand("copy"); area.remove();
+      }
+    }
+
+    function bytesToBase64Url(bytes) {
+      let binary = ""; bytes.forEach(byte => binary += String.fromCharCode(byte));
+      return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+    }
+    function base64UrlToBytes(text) {
+      let base64 = String(text).replace(/-/g, "+").replace(/_/g, "/");
+      while (base64.length % 4) base64 += "=";
+      return Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+    }
+    async function encodePayload(obj) {
+      const raw = new TextEncoder().encode(JSON.stringify(obj));
+      if ("CompressionStream" in window) {
+        try {
+          const stream = new Blob([raw]).stream().pipeThrough(new CompressionStream("deflate-raw"));
+          return "d." + bytesToBase64Url(new Uint8Array(await new Response(stream).arrayBuffer()));
+        } catch (_) {}
+      }
+      return "j." + bytesToBase64Url(raw);
+    }
+    async function decodePayload(payload) {
+      if (!payload) return structuredClone(blankState);
+      const kind = payload.slice(0, 2);
+      let bytes = base64UrlToBytes(payload.slice(2));
+      if (kind === "d.") {
+        if (!("DecompressionStream" in window)) throw new Error("当前浏览器不支持读取压缩参数，请使用最新版 Chrome 或 Edge。");
+        const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+        bytes = new Uint8Array(await new Response(stream).arrayBuffer());
+      } else if (kind !== "j.") throw new Error("不支持的配置参数版本。");
+      return { ...structuredClone(blankState), ...JSON.parse(new TextDecoder().decode(bytes)) };
+    }
+
+    function populate() {
+      $("titleInput").value = state.t || "";
+      $("contentInput").value = Array.isArray(state.b) ? state.b.join("\n") : "";
+      $("iconInput").value = state.i || "PAPER";
+      $("commandInput").value = Array.isArray(state.c) ? state.c.join("\n") : "";
+      $("expiryInput").value = Number(state.e || 3);
+      $("testTargetLabel").textContent = state.x || "Mooshed88_";
+      $("sourceTemplate").textContent = state.n ? `来源模板：${state.n}` : "当前从头编辑";
+      $("templateNameInput").value = state.n ? `${state.n} 副本` : "";
+      $("stateSummary").innerHTML = state.n ? `已载入模板 <strong>${escapeHtml(state.n)}</strong>。` : "已创建一封空白邮件。";
+      renderMaterials(); syncConditional(); validate();
+    }
+
+    ["titleInput", "contentInput"].forEach(id => $(id).addEventListener("focus", event => activeTextInput = event.target));
+    document.addEventListener("input", event => {
+      if (event.target.matches("input,textarea")) { lastCommands = []; renderCommands(); renderPreview(); validate(); }
+    });
+    document.addEventListener("change", event => {
+      if (event.target.matches('input[name="target"],#saveTemplateInput')) { lastCommands = []; renderCommands(); syncConditional(); validate(); }
+    });
+    document.addEventListener("click", async event => {
+      const target = event.target.closest("button");
+      if (!target) return;
+      if (target.dataset.code) insertCode(target.dataset.code);
+      if (target.dataset.material) { $("iconInput").value = target.dataset.material; renderPreview(); validate(); }
+      if (target.id === "generateButton") await generateCommands();
+      if (target.id === "copyAllButton" && lastCommands.length) await copyText(lastCommands.join("\n"));
+      if (target.dataset.copy !== undefined) await copyText(lastCommands[Number(target.dataset.copy)] || "");
+    });
+    $("hexPicker").addEventListener("input", event => insertCode("&#" + event.target.value.slice(1)));
+    $("materialSearch").addEventListener("input", renderMaterials);
+
+    (async function init() {
+      try {
+        state = await decodePayload(new URLSearchParams(location.search).get("s"));
+        populate();
+      } catch (error) {
+        $("stateSummary").textContent = "配置读取失败。";
+        $("validation").className = "validation error";
+        $("validation").textContent = error.message || String(error);
+      }
+    })();
+  </script>
+</body>
+</html>
